@@ -466,45 +466,105 @@ export default function DesignStudio() {
             </div>
           </div>
 
-          {/* Center — Drawing Canvas */}
-          <div className="flex-1 flex flex-col items-center justify-center bg-muted/30 overflow-auto p-4">
-            <div className="relative shadow-2xl rounded-xl overflow-hidden bg-white">
-              <canvas
-                ref={canvasRef}
-                className="cursor-crosshair block"
-                style={{ width: "100%", maxWidth: 500, maxHeight: 600 }}
-                onMouseDown={startDraw}
-                onMouseMove={draw}
-                onMouseUp={endDraw}
-                onMouseLeave={endDraw}
-                onTouchStart={startDraw}
-                onTouchMove={draw}
-                onTouchEnd={endDraw}
-              />
-              {/* Pattern overlay preview */}
-              {selectedPattern && (
-                <div
-                  className="absolute inset-0 pointer-events-none rounded-xl"
-                  style={{
-                    background: patternSwatches.find(p => p.id === selectedPattern)?.css || "",
-                    backgroundSize: selectedPattern === "polka" ? "20px 20px" : selectedPattern === "zigzag" ? "20px 20px" : undefined,
-                    opacity: 0.6,
-                  }}
-                />
-              )}
-              {/* Fabric overlay preview */}
-              {selectedFabric && (
-                <div
-                  className="absolute inset-0 pointer-events-none rounded-xl"
-                  style={{
-                    backgroundColor: fabricTextures.find(f => f.id === selectedFabric)?.color || "transparent",
-                  }}
-                />
-              )}
+          {/* Center — Canvas + AI Results */}
+          <div className="flex-1 flex flex-col bg-muted/30 overflow-auto p-4">
+            {/* Three-panel preview */}
+            <div className="flex gap-4 justify-center items-start flex-wrap flex-1">
+              {/* YOUR SKETCH */}
+              <div className="flex flex-col items-center">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Your Sketch</h3>
+                <div className="relative shadow-2xl rounded-xl overflow-hidden bg-card border border-border">
+                  <canvas
+                    ref={canvasRef}
+                    className="cursor-crosshair block"
+                    style={{ width: 280, maxHeight: 350 }}
+                    onMouseDown={startDraw}
+                    onMouseMove={draw}
+                    onMouseUp={endDraw}
+                    onMouseLeave={endDraw}
+                    onTouchStart={startDraw}
+                    onTouchMove={draw}
+                    onTouchEnd={endDraw}
+                  />
+                  {selectedPattern && (
+                    <div className="absolute inset-0 pointer-events-none rounded-xl" style={{ background: patternSwatches.find(p => p.id === selectedPattern)?.css || "", backgroundSize: selectedPattern === "polka" ? "20px 20px" : selectedPattern === "zigzag" ? "20px 20px" : undefined, opacity: 0.6 }} />
+                  )}
+                  {selectedFabric && (
+                    <div className="absolute inset-0 pointer-events-none rounded-xl" style={{ backgroundColor: fabricTextures.find(f => f.id === selectedFabric)?.color || "transparent" }} />
+                  )}
+                </div>
+              </div>
+
+              {/* AI GENERATED */}
+              <div className="flex flex-col items-center">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">✨ AI Generated</h3>
+                <div className="relative w-[280px] h-[350px] rounded-xl overflow-hidden bg-card border border-border flex items-center justify-center shadow-lg">
+                  {isGenerating ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 size={32} className="animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">Generating outfit...</p>
+                    </div>
+                  ) : generatedImageUrl ? (
+                    <>
+                      <img src={generatedImageUrl} alt="AI Generated" className="w-full h-full object-contain" />
+                      <button onClick={() => setGeneratedImageUrl(null)} className="absolute top-2 right-2 w-6 h-6 rounded-full bg-background/80 flex items-center justify-center text-muted-foreground hover:text-destructive">✕</button>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center px-4">Draw a sketch and click<br />"AI Generate" to see the result</p>
+                  )}
+                </div>
+              </div>
+
+              {/* VIRTUAL TRY-ON */}
+              <div className="flex flex-col items-center">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">✨ Virtual Try-On</h3>
+                <div className="relative w-[280px] h-[350px] rounded-xl overflow-hidden bg-card border border-border flex items-center justify-center shadow-lg">
+                  {isTryingOn ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 size={32} className="animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">Applying outfit...</p>
+                    </div>
+                  ) : tryOnImageUrl ? (
+                    <>
+                      <img src={tryOnImageUrl} alt="Virtual Try-On" className="w-full h-full object-contain" />
+                      <button onClick={() => setTryOnImageUrl(null)} className="absolute top-2 right-2 w-6 h-6 rounded-full bg-background/80 flex items-center justify-center text-muted-foreground hover:text-destructive">✕</button>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center px-4">Upload your photo and<br />generate a try-on</p>
+                  )}
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-3">
-              Select a template, draw your design, then apply colors, patterns & fabrics
-            </p>
+
+            {/* Action buttons */}
+            <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
+              <input ref={personInputRef} type="file" accept="image/*" className="hidden" onChange={handlePersonPhotoUpload} />
+              <Button onClick={handleAIGenerate} disabled={isGenerating} className="burgundy-gradient border-none text-primary-foreground rounded-full gap-2">
+                {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                {isGenerating ? "Generating..." : "AI Generate"}
+              </Button>
+              <Button onClick={() => personInputRef.current?.click()} variant="outline" className="rounded-full gap-2">
+                📷 {personPhoto ? "Change Photo" : "Upload Photo"}
+              </Button>
+              <Button onClick={handleVirtualTryOn} disabled={isTryingOn || !generatedImageUrl} variant="outline" className="rounded-full gap-2">
+                {isTryingOn ? <Loader2 size={16} className="animate-spin" /> : <span>👗</span>}
+                {isTryingOn ? "Processing..." : "Virtual Try-On"}
+              </Button>
+            </div>
+
+            {/* AI info */}
+            {generatedImageUrl && (
+              <div className="mt-3 bg-card rounded-xl border border-border p-3 max-w-md mx-auto">
+                <h4 className="font-display text-sm font-semibold flex items-center gap-2">✨ AI Generate</h4>
+                <p className="text-xs text-muted-foreground mt-1">Your realistic outfit is ready!</p>
+                {selectedPattern && <p className="text-xs text-accent mt-0.5">✦ Pattern: {patternSwatches.find(p => p.id === selectedPattern)?.label}</p>}
+                {selectedFabric && <p className="text-xs text-accent">✦ Fabric: {fabricTextures.find(f => f.id === selectedFabric)?.label}</p>}
+                <Button onClick={handleAIGenerate} disabled={isGenerating} size="sm" className="mt-2 burgundy-gradient border-none text-primary-foreground rounded-full gap-1.5 w-full">
+                  {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  Re-Generate
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Right sidebar — Colors, Patterns & Fabrics */}
