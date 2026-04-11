@@ -100,6 +100,12 @@ export default function DesignStudio() {
   const [selectedFabric, setSelectedFabric] = useState<string | null>(null);
   const [selectedPattern, setSelectedPattern] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [isTryingOn, setIsTryingOn] = useState(false);
+  const [tryOnImageUrl, setTryOnImageUrl] = useState<string | null>(null);
+  const [personPhoto, setPersonPhoto] = useState<string | null>(null);
+  const personInputRef = useRef<HTMLInputElement>(null);
 
   const CANVAS_W = 600;
   const CANVAS_H = 700;
