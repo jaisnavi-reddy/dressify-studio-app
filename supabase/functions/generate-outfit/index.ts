@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { sketchDataUrl, outfitType, gender, fabric } = await req.json();
+    const { sketchDataUrl, outfitType, gender, fabric, colors, patterns, selectedRegion } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -26,17 +26,21 @@ serve(async (req) => {
     const outfitLabel = outfitType || "outfit";
     const genderLabel = gender === "men" ? "men's" : "women's";
     const fabricLabel = fabric || "silk";
+    const colorDesc = colors ? ` Use these exact colors: ${colors}.` : "";
+    const patternDesc = patterns && patterns !== "none" ? ` Apply these patterns to the respective regions: ${patterns}.` : "";
+    const regionDesc = selectedRegion ? ` Focus especially on the ${selectedRegion} region of the garment.` : "";
 
-    const prompt = `Convert this exact fashion sketch into a photorealistic ${genderLabel} ${outfitLabel} made of ${fabricLabel} fabric.
+    const prompt = `Convert this fashion design image into a photorealistic ${genderLabel} ${outfitLabel} made of ${fabricLabel} fabric.
 
 CRITICAL RULES:
-- Reproduce the EXACT same silhouette, shape, and design from the sketch. Do NOT add any extra design elements, patterns, or embellishments that are not in the sketch.
-- If the sketch shows a plain garment, keep it plain. Only add details that are clearly drawn in the sketch.
+- Reproduce the EXACT same silhouette, shape, and design from the image.${colorDesc}${patternDesc}${regionDesc}
 - Apply realistic ${fabricLabel} fabric texture with natural folds, shadows, and lighting.
+- The colors shown in the image overlay should be accurately reflected in the final garment.
 - Display the garment on a clean white/neutral background, flat-lay or mannequin style.
 - Make it look like a professional fashion catalog photograph.
-- Match the exact proportions and outline of the sketched garment.
-- Do NOT add embroidery, borders, or decorations unless they are explicitly drawn in the sketch.`;
+- Match the exact proportions and outline of the source garment.
+- If patterns are specified, weave them realistically into the fabric texture.
+- Ensure the generated image looks like a real photograph, not a digital rendering.`;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
