@@ -1,25 +1,47 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AppProvider } from "@/contexts/AppContext";
+import Auth from "./pages/Auth";
+import Home from "./pages/Home";
+import Categories from "./pages/Categories";
+import Designs from "./pages/Designs";
+import Editor from "./pages/Editor";
+import Canvas from "./pages/Canvas";
+import FinalView from "./pages/FinalView";
+import SavedDesigns from "./pages/SavedDesigns";
+import Feedback from "./pages/Feedback";
+import DesignStudio from "./pages/DesignStudio";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AppProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Auth />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/home" element={<Home />} />
+            <Route path="/categories/:gender" element={<Categories />} />
+            <Route path="/designs/:gender/:categoryId" element={<Designs />} />
+            <Route path="/editor/:designId" element={<Editor />} />
+            <Route path="/canvas/:savedId" element={<Canvas />} />
+            <Route path="/final/:savedId" element={<FinalView />} />
+            <Route path="/saved" element={<SavedDesigns />} />
+            <Route path="/saved-designs" element={<SavedDesigns />} />
+            <Route path="/feedback" element={<Feedback />} />
+            <Route path="/design-studio" element={<DesignStudio />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AppProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
