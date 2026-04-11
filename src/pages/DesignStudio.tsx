@@ -279,6 +279,8 @@ export default function DesignStudio() {
       const sketchDataUrl = canvasRef.current?.toDataURL("image/png") || "";
       const designData = {
         sketchDataUrl,
+        generatedImageUrl,
+        tryOnImageUrl,
         outfitType: selectedTemplate || "custom",
         gender,
         fabric: selectedFabric,
@@ -295,7 +297,7 @@ export default function DesignStudio() {
       if (error) throw error;
 
       toast({ title: "Design Saved! ✨", description: "Your creation has been saved." });
-      navigate("/saved-designs");
+      navigate("/saved");
     } catch (err: any) {
       console.error("Save error:", err);
       toast({ title: "Save failed", description: err.message || "Could not save design.", variant: "destructive" });
