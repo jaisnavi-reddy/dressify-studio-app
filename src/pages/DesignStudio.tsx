@@ -306,7 +306,86 @@ export default function DesignStudio() {
     }
   };
 
-  return (
+  /* ── AI Generate ── */
+  const handleAIGenerate = async () => {
+    const sketchDataUrl = canvasRef.current?.toDataURL("image/png");
+    if (!sketchDataUrl) {
+      toast({ title: "Draw something first", description: "Please sketch an outfit before generating.", variant: "destructive" });
+      return;
+    }
+    setIsGenerating(true);
+    setGeneratedImageUrl(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-outfit", {
+        body: {
+          sketchDataUrl,
+          outfitType: selectedTemplate || "dress",
+          gender,
+          fabric: fabricTextures.find(f => f.id === selectedFabric)?.label || "silk",
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.imageUrl) {
+        setGeneratedImageUrl(data.imageUrl);
+        toast({ title: "✨ AI Generated!", description: "Your realistic outfit is ready!" });
+      } else {
+        throw new Error("No image generated");
+      }
+    } catch (err: any) {
+      console.error("AI generate error:", err);
+      toast({ title: "Generation failed", description: err.message || "Could not generate outfit.", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  /* ── Virtual Try-On ── */
+  const handlePersonPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPersonPhoto(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleVirtualTryOn = async () => {
+    if (!personPhoto) {
+      toast({ title: "Upload a photo first", description: "Please upload your photo for virtual try-on.", variant: "destructive" });
+      return;
+    }
+    if (!generatedImageUrl) {
+      toast({ title: "Generate outfit first", description: "Please generate an AI outfit before trying on.", variant: "destructive" });
+      return;
+    }
+    setIsTryingOn(true);
+    setTryOnImageUrl(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("virtual-tryon", {
+        body: {
+          personImageUrl: personPhoto,
+          outfitImageUrl: generatedImageUrl,
+          outfitType: selectedTemplate || "dress",
+          gender,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.imageUrl) {
+        setTryOnImageUrl(data.imageUrl);
+        toast({ title: "🎉 Virtual Try-On Ready!", description: "See yourself in the outfit!" });
+      } else {
+        throw new Error("No try-on image generated");
+      }
+    } catch (err: any) {
+      console.error("Try-on error:", err);
+      toast({ title: "Try-on failed", description: err.message || "Could not generate try-on.", variant: "destructive" });
+    } finally {
+      setIsTryingOn(false);
+    }
+  };
+
+
     <MainLayout>
       <div className="flex flex-col h-screen">
         {/* Top toolbar */}
