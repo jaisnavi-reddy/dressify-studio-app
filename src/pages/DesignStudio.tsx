@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useApp } from "@/contexts/AppContext";
 import {
   Paintbrush, Pen, Eraser, PaintBucket, Square, MousePointer,
-  Undo2, Redo2, Trash2, Save, Download, Loader2,
+  Undo2, Redo2, Trash2, Save, Download, Loader2, Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
