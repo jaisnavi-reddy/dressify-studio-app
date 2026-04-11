@@ -4,15 +4,15 @@ import MainLayout from "@/components/MainLayout";
 import { Button } from "@/components/ui/button";
 import { designs, availableColors } from "@/data/designs";
 import { useApp } from "@/contexts/AppContext";
-import { Save, Palette, Layers, GripVertical, Download, Sparkles, Shirt } from "lucide-react";
+import { Save, Palette, Layers, Download, Sparkles, Shirt, Loader2 } from "lucide-react";
 import DraggableCanvas from "@/components/editor/DraggableCanvas";
-import ElementPanel from "@/components/editor/ElementPanel";
 import PatternPanel from "@/components/editor/PatternPanel";
 import { PlacedElement } from "@/components/editor/designElements";
 import { getGarmentMaskConfig } from "@/components/editor/garmentMasks";
 import { FabricPattern, getColorSuggestions } from "@/components/editor/fabricPatterns";
 import { useToast } from "@/hooks/use-toast";
 import html2canvas from "html2canvas";
+import { supabase } from "@/integrations/supabase/client";
 
 type Part = "body" | "sleeve" | "border";
 
@@ -31,8 +31,10 @@ export default function Editor() {
   const [activePart, setActivePart] = useState<Part>("body");
   const [isEditing, setIsEditing] = useState(false);
   const [placedElements, setPlacedElements] = useState<PlacedElement[]>([]);
-  const [activeTab, setActiveTab] = useState<"elements" | "colors" | "patterns">("colors");
+  const [activeTab, setActiveTab] = useState<"colors" | "patterns">("colors");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
 
   if (!design) return <MainLayout><div className="p-12">Design not found</div></MainLayout>;
 
@@ -87,10 +89,57 @@ export default function Editor() {
     }
   };
 
+  /* ── AI Generate from selected design + customizations ── */
+  const handleAIGenerate = async () => {
+    if (!canvasRef.current) return;
+    setIsGenerating(true);
+    setGeneratedImageUrl(null);
+    try {
+      // Capture the current customized design as an image
+      const canvasEl = await html2canvas(canvasRef.current, {
+        useCORS: true,
+        scale: 2,
+        backgroundColor: "#ffffff",
+      });
+      const sketchDataUrl = canvasEl.toDataURL("image/png");
+
+      const patternNames = Object.entries(patterns)
+        .filter(([, p]) => p !== null)
+        .map(([region, p]) => `${region}: ${p!.name}`)
+        .join(", ");
+
+      const colorDesc = `body=${colors.body}, sleeve=${colors.sleeve}, border=${colors.border}`;
+
+      const { data, error } = await supabase.functions.invoke("generate-outfit", {
+        body: {
+          sketchDataUrl,
+          outfitType: design.categoryId,
+          gender: design.gender,
+          fabric: design.fabric,
+          colors: colorDesc,
+          patterns: patternNames || "none",
+          selectedRegion: activePart,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.imageUrl) {
+        setGeneratedImageUrl(data.imageUrl);
+        toast({ title: "✨ AI Generated!", description: "Your customized outfit has been generated!" });
+      } else {
+        throw new Error("No image generated");
+      }
+    } catch (err: any) {
+      console.error("AI generate error:", err);
+      toast({ title: "Generation failed", description: err.message || "Could not generate outfit.", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const tabs = [
     { id: "colors" as const, icon: Palette, label: "Colors" },
     { id: "patterns" as const, icon: Layers, label: "Patterns" },
-    { id: "elements" as const, icon: GripVertical, label: "Elements" },
   ];
 
   return (
@@ -111,6 +160,10 @@ export default function Editor() {
               </Button>
             ) : (
               <>
+                <Button onClick={handleAIGenerate} disabled={isGenerating} className="bg-gradient-to-r from-violet-600 to-purple-600 border-none text-white">
+                  {isGenerating ? <Loader2 className="mr-2 animate-spin" size={18} /> : <Sparkles className="mr-2" size={18} />}
+                  {isGenerating ? "Generating..." : "Generate Image"}
+                </Button>
                 <Button onClick={handleDownload} variant="outline" size="sm">
                   <Download className="mr-1.5" size={16} /> Download PNG
                 </Button>
@@ -123,17 +176,46 @@ export default function Editor() {
         </div>
 
         <div className="grid lg:grid-cols-[1fr_340px] gap-6">
-          <DraggableCanvas
-            ref={canvasRef}
-            imageSrc={design.image}
-            imageAlt={design.name}
-            placedElements={placedElements}
-            onElementsChange={setPlacedElements}
-            colors={colors}
-            categoryId={design.categoryId}
-            activePart={isEditing ? activePart : undefined}
-            patterns={patterns}
-          />
+          {/* Left: Preview - original + generated */}
+          <div className="space-y-4">
+            <DraggableCanvas
+              ref={canvasRef}
+              imageSrc={design.image}
+              imageAlt={design.name}
+              placedElements={placedElements}
+              onElementsChange={setPlacedElements}
+              colors={colors}
+              categoryId={design.categoryId}
+              activePart={isEditing ? activePart : undefined}
+              patterns={patterns}
+            />
+
+            {/* AI Generated Result */}
+            {(isGenerating || generatedImageUrl) && (
+              <div className="bg-card rounded-2xl border border-border p-4 animate-fade-in">
+                <h3 className="font-display text-lg font-semibold mb-3 flex items-center gap-2">
+                  <Sparkles size={18} className="text-accent" /> AI Generated Result
+                </h3>
+                <div className="relative rounded-xl overflow-hidden bg-muted flex items-center justify-center min-h-[300px]">
+                  {isGenerating ? (
+                    <div className="flex flex-col items-center gap-3 py-12">
+                      <Loader2 size={36} className="animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">Generating your customized outfit...</p>
+                      <p className="text-xs text-muted-foreground">This may take 15-30 seconds</p>
+                    </div>
+                  ) : generatedImageUrl ? (
+                    <>
+                      <img src={generatedImageUrl} alt="AI Generated" className="w-full max-h-[500px] object-contain" />
+                      <button
+                        onClick={() => setGeneratedImageUrl(null)}
+                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/80 flex items-center justify-center text-muted-foreground hover:text-destructive"
+                      >✕</button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </div>
 
           {isEditing ? (
             <div className="space-y-5 animate-fade-in overflow-y-auto max-h-[80vh]">
@@ -151,8 +233,6 @@ export default function Editor() {
                   </button>
                 ))}
               </div>
-
-              {activeTab === "elements" && <ElementPanel />}
 
               {activeTab === "patterns" && (
                 <PatternPanel
@@ -278,15 +358,15 @@ export default function Editor() {
                     <p className="text-xs text-muted-foreground leading-relaxed">
                       {design.gender === "women"
                         ? design.categoryId === "sarees"
-                          ? "Try a contrasting blouse color with a gold or silver border for an elegant look. A matching petticoat in the saree body color completes the outfit."
+                          ? "Try a contrasting blouse color with a gold or silver border for an elegant look."
                           : design.categoryId === "lehenga"
-                          ? "Pair with a matching choli in a lighter shade and a contrasting dupatta. Gold borders add a festive touch."
-                          : "Complement with matching bottom-wear in a neutral or analogous shade. Add a dupatta or scarf in the border color."
+                          ? "Pair with a matching choli in a lighter shade and a contrasting dupatta."
+                          : "Complement with matching bottom-wear in a neutral or analogous shade."
                         : design.categoryId === "shirts"
-                        ? "Pair with dark trousers or chinos. Match your pocket square to the collar accent color for a polished look."
+                        ? "Pair with dark trousers or chinos for a polished look."
                         : design.categoryId === "dhoti"
-                        ? "Pair with a matching kurta in a complementary shade. A silk border adds traditional elegance."
-                        : "Match with coordinating pants in a darker or neutral shade. Keep accessories minimal for a clean look."}
+                        ? "Pair with a matching kurta in a complementary shade."
+                        : "Match with coordinating pants in a darker or neutral shade."}
                     </p>
                   </div>
 
@@ -325,7 +405,7 @@ export default function Editor() {
                   </div>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">Click "Edit Design" to customize colors, apply fabric patterns, and add design elements.</p>
+              <p className="text-sm text-muted-foreground">Click "Edit Design" to customize colors, apply fabric patterns, and generate AI images.</p>
             </div>
           )}
         </div>
