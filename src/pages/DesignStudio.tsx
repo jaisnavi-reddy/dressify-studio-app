@@ -385,7 +385,7 @@ export default function DesignStudio() {
     }
   };
 
-
+  return (
     <MainLayout>
       <div className="flex flex-col h-screen">
         {/* Top toolbar */}
