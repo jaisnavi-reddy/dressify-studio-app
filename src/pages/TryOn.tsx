@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import MainLayout from "@/components/MainLayout";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Shirt, Download, RotateCcw, Move, ZoomIn, ZoomOut } from "lucide-react";
+import { Upload, Shirt, Download, RotateCcw, Move, ZoomIn } from "lucide-react";
 
 const outfitOverlays = [
   { id: "saree", label: "Saree", emoji: "🥻", color: "#8B1A4A" },
@@ -41,46 +41,38 @@ export default function TryOn() {
     if (!canvas || !userImage) return;
     const ctx = canvas.getContext("2d")!;
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.onload = () => {
       canvas.width = 400;
       canvas.height = 600;
-      // Draw user image
       const scale = Math.min(400 / img.width, 600 / img.height);
       const w = img.width * scale;
       const h = img.height * scale;
       ctx.clearRect(0, 0, 400, 600);
       ctx.drawImage(img, (400 - w) / 2, (600 - h) / 2, w, h);
 
-      // Overlay outfit shape
       if (selectedOutfit) {
         const outfit = outfitOverlays.find((o) => o.id === selectedOutfit);
         if (outfit) {
           ctx.save();
           ctx.globalAlpha = overlayOpacity;
-
           const ow = 220 * overlayScale;
           const oh = 300 * overlayScale;
           const ox = (400 - ow) / 2;
           const oy = 600 * overlayY;
 
-          // Gradient fill for outfit
           const grad = ctx.createLinearGradient(ox, oy, ox + ow, oy + oh);
           grad.addColorStop(0, outfit.color + "CC");
           grad.addColorStop(1, outfit.color + "88");
           ctx.fillStyle = grad;
 
-          // Draw outfit shape
           ctx.beginPath();
           if (["saree", "lehenga", "dress"].includes(outfit.id)) {
-            // Flowing dress shape
             ctx.moveTo(ox + ow * 0.3, oy);
             ctx.quadraticCurveTo(ox + ow * 0.1, oy + oh * 0.3, ox, oy + oh);
             ctx.lineTo(ox + ow, oy + oh);
             ctx.quadraticCurveTo(ox + ow * 0.9, oy + oh * 0.3, ox + ow * 0.7, oy);
             ctx.closePath();
           } else if (["shirt", "kurta-m", "blouse"].includes(outfit.id)) {
-            // Top shape
             ctx.moveTo(ox + ow * 0.25, oy);
             ctx.lineTo(ox + ow * 0.1, oy + oh * 0.15);
             ctx.lineTo(ox, oy + oh * 0.2);
@@ -93,12 +85,11 @@ export default function TryOn() {
             ctx.lineTo(ox + ow * 0.75, oy);
             ctx.closePath();
           } else {
-            // Jacket/suit shape
             ctx.roundRect(ox, oy, ow, oh, 12);
           }
           ctx.fill();
 
-          // Add pattern overlay
+          // Pattern lines
           ctx.globalAlpha = 0.15;
           for (let py = oy; py < oy + oh; py += 12) {
             ctx.beginPath();
@@ -108,7 +99,6 @@ export default function TryOn() {
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }
-
           ctx.restore();
         }
       }
@@ -116,10 +106,9 @@ export default function TryOn() {
     img.src = userImage;
   }, [userImage, selectedOutfit, overlayScale, overlayY, overlayOpacity]);
 
-  // Redraw when params change
-  useState(() => { drawPreview(); });
-  // Use effect for redraw
-  import("react").then(() => {});
+  useEffect(() => {
+    drawPreview();
+  }, [drawPreview]);
 
   const handleDownload = () => {
     drawPreview();
@@ -133,9 +122,6 @@ export default function TryOn() {
       toast({ title: "Downloaded!" });
     }, 300);
   };
-
-  // Trigger redraw on state changes
-  const redraw = () => setTimeout(drawPreview, 50);
 
   return (
     <MainLayout>
@@ -152,17 +138,12 @@ export default function TryOn() {
         <div className="grid lg:grid-cols-[1fr_400px_1fr] gap-6">
           {/* Left — Upload & Outfit Selection */}
           <div className="space-y-5">
-            {/* Upload */}
             <div className="bg-card rounded-2xl border border-border p-5">
               <h3 className="font-display text-lg font-semibold mb-3 flex items-center gap-2">
                 <Upload size={18} /> Upload Your Photo
               </h3>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                variant="outline"
-                className="w-full h-12 rounded-xl gap-2"
-              >
+              <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="w-full h-12 rounded-xl gap-2">
                 📷 {userImage ? "Change Photo" : "Choose Photo"}
               </Button>
               {userImage && (
@@ -172,7 +153,6 @@ export default function TryOn() {
               )}
             </div>
 
-            {/* Outfit Selection */}
             <div className="bg-card rounded-2xl border border-border p-5">
               <h3 className="font-display text-lg font-semibold mb-3 flex items-center gap-2">
                 <Shirt size={18} /> Select Outfit
@@ -181,7 +161,7 @@ export default function TryOn() {
                 {outfitOverlays.map((o) => (
                   <button
                     key={o.id}
-                    onClick={() => { setSelectedOutfit(o.id); redraw(); }}
+                    onClick={() => setSelectedOutfit(o.id)}
                     className={`flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium transition-all ${
                       selectedOutfit === o.id
                         ? "bg-primary text-primary-foreground shadow-md"
@@ -196,28 +176,22 @@ export default function TryOn() {
             </div>
           </div>
 
-          {/* Center — Preview Canvas */}
+          {/* Center — Preview */}
           <div className="flex flex-col items-center">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Preview</h3>
             <div className="relative bg-card rounded-2xl border border-border overflow-hidden shadow-lg">
               {userImage ? (
-                <canvas
-                  ref={canvasRef}
-                  className="block"
-                  style={{ width: 400, height: 600 }}
-                />
+                <canvas ref={canvasRef} className="block" style={{ width: 400, height: 600 }} />
               ) : (
                 <div className="w-[400px] h-[600px] flex flex-col items-center justify-center bg-muted/50">
                   <span className="text-6xl mb-4">📸</span>
-                  <p className="text-muted-foreground text-center px-8">
-                    Upload a photo to see<br />the virtual try-on preview
-                  </p>
+                  <p className="text-muted-foreground text-center px-8">Upload a photo to see<br />the virtual try-on preview</p>
                 </div>
               )}
             </div>
             {userImage && (
               <div className="flex gap-3 mt-4">
-                <Button onClick={() => { drawPreview(); }} variant="outline" size="sm" className="rounded-full gap-1">
+                <Button onClick={drawPreview} variant="outline" size="sm" className="rounded-full gap-1">
                   <RotateCcw size={14} /> Refresh
                 </Button>
                 <Button onClick={handleDownload} size="sm" className="burgundy-gradient border-none text-primary-foreground rounded-full gap-1">
@@ -233,46 +207,30 @@ export default function TryOn() {
               <h3 className="font-display text-lg font-semibold mb-4 flex items-center gap-2">
                 <Move size={18} /> Adjust Overlay
               </h3>
-
               <div className="space-y-4">
                 <div>
                   <label className="text-sm text-muted-foreground flex items-center justify-between mb-1">
                     <span className="flex items-center gap-1"><ZoomIn size={14} /> Size</span>
                     <span className="font-mono text-xs">{(overlayScale * 100).toFixed(0)}%</span>
                   </label>
-                  <input
-                    type="range" min={0.5} max={2} step={0.05} value={overlayScale}
-                    onChange={(e) => { setOverlayScale(+e.target.value); redraw(); }}
-                    className="w-full"
-                  />
+                  <input type="range" min={0.5} max={2} step={0.05} value={overlayScale} onChange={(e) => setOverlayScale(+e.target.value)} className="w-full" />
                 </div>
-
                 <div>
                   <label className="text-sm text-muted-foreground flex items-center justify-between mb-1">
                     <span>Position</span>
                     <span className="font-mono text-xs">{(overlayY * 100).toFixed(0)}%</span>
                   </label>
-                  <input
-                    type="range" min={0} max={0.6} step={0.02} value={overlayY}
-                    onChange={(e) => { setOverlayY(+e.target.value); redraw(); }}
-                    className="w-full"
-                  />
+                  <input type="range" min={0} max={0.6} step={0.02} value={overlayY} onChange={(e) => setOverlayY(+e.target.value)} className="w-full" />
                 </div>
-
                 <div>
                   <label className="text-sm text-muted-foreground flex items-center justify-between mb-1">
                     <span>Opacity</span>
                     <span className="font-mono text-xs">{(overlayOpacity * 100).toFixed(0)}%</span>
                   </label>
-                  <input
-                    type="range" min={0.2} max={1} step={0.05} value={overlayOpacity}
-                    onChange={(e) => { setOverlayOpacity(+e.target.value); redraw(); }}
-                    className="w-full"
-                  />
+                  <input type="range" min={0.2} max={1} step={0.05} value={overlayOpacity} onChange={(e) => setOverlayOpacity(+e.target.value)} className="w-full" />
                 </div>
               </div>
             </div>
-
             {selectedOutfit && (
               <div className="bg-muted/50 rounded-2xl p-4">
                 <p className="text-sm text-muted-foreground">
