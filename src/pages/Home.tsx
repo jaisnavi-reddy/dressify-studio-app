@@ -14,10 +14,10 @@ const slides = [
 ];
 
 const features = [
-  { icon: Paintbrush, title: "Drawing Canvas", desc: "Sketch outfits with brush, pen & shape tools" },
-  { icon: Sparkles, title: "AI Sketch → Outfit", desc: "Convert your sketch into a realistic design" },
-  { icon: Camera, title: "Virtual Try-On", desc: "See yourself wearing your creation" },
-  { icon: Save, title: "Save & Download", desc: "Export designs as high-res PNG images" },
+  { icon: Sparkles, title: "AI Generator", desc: "Generate unlimited outfits instantly — no API needed" },
+  { icon: Camera, title: "Virtual Try-On", desc: "Upload your photo & overlay outfits on yourself" },
+  { icon: Paintbrush, title: "Design Studio", desc: "Sketch outfits with brush, pen & shape tools" },
+  { icon: Save, title: "Save & History", desc: "Track all generated outfits with local history" },
 ];
 
 export default function Home() {
@@ -112,14 +112,23 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Quick Links */}
-        <section className="px-8 py-12 flex flex-wrap gap-4 justify-center">
-          <Button variant="outline" onClick={() => navigate("/saved")} className="rounded-full gap-2">
-            <Save size={16} /> Saved Designs
-          </Button>
-          <Button variant="outline" onClick={() => navigate("/feedback")} className="rounded-full gap-2">
-            <Shirt size={16} /> Feedback
-          </Button>
+        {/* Quick Actions */}
+        <section className="px-8 py-12">
+          <h2 className="font-display text-3xl font-bold mb-6 text-foreground text-center">Quick Actions</h2>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <Button onClick={() => navigate("/generate")} className="burgundy-gradient border-none text-primary-foreground rounded-full gap-2 h-12 px-8">
+              <Sparkles size={16} /> Generate Outfit
+            </Button>
+            <Button onClick={() => navigate("/tryon")} variant="outline" className="rounded-full gap-2 h-12 px-8">
+              <Camera size={16} /> Virtual Try-On
+            </Button>
+            <Button onClick={() => navigate("/history")} variant="outline" className="rounded-full gap-2 h-12 px-8">
+              <Save size={16} /> View History
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/feedback")} className="rounded-full gap-2 h-12 px-8">
+              <Shirt size={16} /> Feedback
+            </Button>
+          </div>
         </section>
       </div>
     </MainLayout>
