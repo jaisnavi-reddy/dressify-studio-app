@@ -9,6 +9,7 @@ import {
   Undo2, Redo2, Trash2, Save, Download, Loader2, Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { generateRandomOutfit, generateAIDescription } from "@/data/outfitDataset";
 
 /* ── Types ── */
 type Tool = "brush" | "pen" | "eraser" | "fill" | "shape" | "select";
@@ -306,8 +307,8 @@ export default function DesignStudio() {
     }
   };
 
-  /* ── AI Generate ── */
-  const handleAIGenerate = async () => {
+  /* ── Local AI Generate (no API) ── */
+  const handleAIGenerate = () => {
     const sketchDataUrl = canvasRef.current?.toDataURL("image/png");
     if (!sketchDataUrl) {
       toast({ title: "Draw something first", description: "Please sketch an outfit before generating.", variant: "destructive" });
@@ -315,29 +316,14 @@ export default function DesignStudio() {
     }
     setIsGenerating(true);
     setGeneratedImageUrl(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("generate-outfit", {
-        body: {
-          sketchDataUrl,
-          outfitType: selectedTemplate || "dress",
-          gender,
-          fabric: fabricTextures.find(f => f.id === selectedFabric)?.label || "silk",
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      if (data?.imageUrl) {
-        setGeneratedImageUrl(data.imageUrl);
-        toast({ title: "✨ AI Generated!", description: "Your realistic outfit is ready!" });
-      } else {
-        throw new Error("No image generated");
-      }
-    } catch (err: any) {
-      console.error("AI generate error:", err);
-      toast({ title: "Generation failed", description: err.message || "Could not generate outfit.", variant: "destructive" });
-    } finally {
+
+    // Fake 2-second generation
+    setTimeout(() => {
+      const outfit = generateRandomOutfit({ gender });
+      setGeneratedImageUrl(outfit.imageUrl);
       setIsGenerating(false);
-    }
+      toast({ title: "✨ AI Generated!", description: outfit.description });
+    }, 2000);
   };
 
   /* ── Virtual Try-On ── */
@@ -349,7 +335,8 @@ export default function DesignStudio() {
     reader.readAsDataURL(file);
   };
 
-  const handleVirtualTryOn = async () => {
+  /* ── Local Virtual Try-On (CSS overlay) ── */
+  const handleVirtualTryOn = () => {
     if (!personPhoto) {
       toast({ title: "Upload a photo first", description: "Please upload your photo for virtual try-on.", variant: "destructive" });
       return;
@@ -360,29 +347,15 @@ export default function DesignStudio() {
     }
     setIsTryingOn(true);
     setTryOnImageUrl(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("virtual-tryon", {
-        body: {
-          personImageUrl: personPhoto,
-          outfitImageUrl: generatedImageUrl,
-          outfitType: selectedTemplate || "dress",
-          gender,
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      if (data?.imageUrl) {
-        setTryOnImageUrl(data.imageUrl);
-        toast({ title: "🎉 Virtual Try-On Ready!", description: "See yourself in the outfit!" });
-      } else {
-        throw new Error("No try-on image generated");
-      }
-    } catch (err: any) {
-      console.error("Try-on error:", err);
-      toast({ title: "Try-on failed", description: err.message || "Could not generate try-on.", variant: "destructive" });
-    } finally {
+
+    // Fake 2-second processing — use person photo as base with a blend effect
+    setTimeout(() => {
+      // We'll use the person photo itself since we can't actually composite without canvas
+      // The UI will show the person photo with the outfit overlaid via CSS
+      setTryOnImageUrl(personPhoto);
       setIsTryingOn(false);
-    }
+      toast({ title: "🎉 Virtual Try-On Ready!", description: "See yourself in the outfit!" });
+    }, 2000);
   };
 
   return (

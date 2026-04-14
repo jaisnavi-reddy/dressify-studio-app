@@ -1,4 +1,4 @@
-import { Search, User, MessageSquare, Save, LogOut, Home, Paintbrush } from "lucide-react";
+import { Search, User, MessageSquare, Save, LogOut, Home, Paintbrush, Sparkles, Camera, Clock } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
@@ -14,6 +14,9 @@ export default function AppSidebar() {
     const q = search.trim().toLowerCase();
     if (q.includes("women") || q.includes("woman")) navigate("/categories/women");
     else if (q.includes("men") || q.includes("man")) navigate("/categories/men");
+    else if (q.includes("generate")) navigate("/generate");
+    else if (q.includes("try")) navigate("/tryon");
+    else if (q.includes("history")) navigate("/history");
     else if (q) navigate(`/categories/women`);
   };
 
@@ -62,6 +65,10 @@ export default function AppSidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-1">
         {navBtn("/home", "Home", Home)}
+        {navBtn("/generate", "Generate Outfit", Sparkles)}
+        {navBtn("/tryon", "Virtual Try-On", Camera)}
+        {navBtn("/history", "History", Clock)}
+        <div className="h-px bg-sidebar-border my-3" />
         {navBtn("/design-studio", "Design Studio", Paintbrush)}
         {navBtn("/categories/women", "Women", () => <span className="text-base">👩</span>)}
         {navBtn("/categories/men", "Men", () => <span className="text-base">👨</span>)}

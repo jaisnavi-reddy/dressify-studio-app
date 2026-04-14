@@ -14,6 +14,9 @@ import FinalView from "./pages/FinalView";
 import SavedDesigns from "./pages/SavedDesigns";
 import Feedback from "./pages/Feedback";
 import DesignStudio from "./pages/DesignStudio";
+import GenerateOutfit from "./pages/GenerateOutfit";
+import TryOn from "./pages/TryOn";
+import History from "./pages/History";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +41,9 @@ const App = () => (
             <Route path="/saved-designs" element={<SavedDesigns />} />
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/design-studio" element={<DesignStudio />} />
+            <Route path="/generate" element={<GenerateOutfit />} />
+            <Route path="/tryon" element={<TryOn />} />
+            <Route path="/history" element={<History />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

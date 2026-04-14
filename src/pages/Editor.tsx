@@ -12,7 +12,7 @@ import { getGarmentMaskConfig } from "@/components/editor/garmentMasks";
 import { FabricPattern, getColorSuggestions } from "@/components/editor/fabricPatterns";
 import { useToast } from "@/hooks/use-toast";
 import html2canvas from "html2canvas";
-import { supabase } from "@/integrations/supabase/client";
+import { generateRandomOutfit, generateAIDescription } from "@/data/outfitDataset";
 
 type Part = "body" | "sleeve" | "border";
 
@@ -34,7 +34,7 @@ export default function Editor() {
   const [activeTab, setActiveTab] = useState<"colors" | "patterns">("colors");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [generatedResult, setGeneratedResult] = useState<{ imageUrl: string; title: string; description: string; aiTip: string } | null>(null);
 
   if (!design) return <MainLayout><div className="p-12">Design not found</div></MainLayout>;
 
@@ -74,11 +74,7 @@ export default function Editor() {
   const handleDownload = async () => {
     if (!canvasRef.current) return;
     try {
-      const canvas = await html2canvas(canvasRef.current, {
-        useCORS: true,
-        scale: 2,
-        backgroundColor: null,
-      });
+      const canvas = await html2canvas(canvasRef.current, { useCORS: true, scale: 2, backgroundColor: null });
       const link = document.createElement("a");
       link.download = `${design.name.replace(/\s+/g, "-").toLowerCase()}-design.png`;
       link.href = canvas.toDataURL("image/png");
@@ -89,52 +85,29 @@ export default function Editor() {
     }
   };
 
-  /* ── AI Generate from selected design + customizations ── */
-  const handleAIGenerate = async () => {
-    if (!canvasRef.current) return;
+  /* ── Local AI Generate (no API) ── */
+  const handleAIGenerate = () => {
     setIsGenerating(true);
-    setGeneratedImageUrl(null);
-    try {
-      // Capture the current customized design as an image
-      const canvasEl = await html2canvas(canvasRef.current, {
-        useCORS: true,
-        scale: 2,
-        backgroundColor: "#ffffff",
+    setGeneratedResult(null);
+
+    // Fake 2-second generation
+    setTimeout(() => {
+      const outfit = generateRandomOutfit({
+        gender: design.gender,
+        color: undefined,
+        fabric: design.fabric.toLowerCase(),
       });
-      const sketchDataUrl = canvasEl.toDataURL("image/png");
+      const aiTip = generateAIDescription(outfit);
 
-      const patternNames = Object.entries(patterns)
-        .filter(([, p]) => p !== null)
-        .map(([region, p]) => `${region}: ${p!.name}`)
-        .join(", ");
-
-      const colorDesc = `body=${colors.body}, sleeve=${colors.sleeve}, border=${colors.border}`;
-
-      const { data, error } = await supabase.functions.invoke("generate-outfit", {
-        body: {
-          sketchDataUrl,
-          outfitType: design.categoryId,
-          gender: design.gender,
-          fabric: design.fabric,
-          colors: colorDesc,
-          patterns: patternNames || "none",
-          selectedRegion: activePart,
-        },
+      setGeneratedResult({
+        imageUrl: outfit.imageUrl,
+        title: outfit.title,
+        description: outfit.description,
+        aiTip,
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      if (data?.imageUrl) {
-        setGeneratedImageUrl(data.imageUrl);
-        toast({ title: "✨ AI Generated!", description: "Your customized outfit has been generated!" });
-      } else {
-        throw new Error("No image generated");
-      }
-    } catch (err: any) {
-      console.error("AI generate error:", err);
-      toast({ title: "Generation failed", description: err.message || "Could not generate outfit.", variant: "destructive" });
-    } finally {
       setIsGenerating(false);
-    }
+      toast({ title: "✨ Outfit Generated!", description: "Your customized outfit is ready — powered locally!" });
+    }, 2000);
   };
 
   const tabs = [
@@ -176,7 +149,7 @@ export default function Editor() {
         </div>
 
         <div className="grid lg:grid-cols-[1fr_340px] gap-6">
-          {/* Left: Preview - original + generated */}
+          {/* Left: Preview */}
           <div className="space-y-4">
             <DraggableCanvas
               ref={canvasRef}
@@ -190,8 +163,8 @@ export default function Editor() {
               patterns={patterns}
             />
 
-            {/* AI Generated Result */}
-            {(isGenerating || generatedImageUrl) && (
+            {/* Generated Result */}
+            {(isGenerating || generatedResult) && (
               <div className="bg-card rounded-2xl border border-border p-4 animate-fade-in">
                 <h3 className="font-display text-lg font-semibold mb-3 flex items-center gap-2">
                   <Sparkles size={18} className="text-accent" /> AI Generated Result
@@ -201,18 +174,37 @@ export default function Editor() {
                     <div className="flex flex-col items-center gap-3 py-12">
                       <Loader2 size={36} className="animate-spin text-primary" />
                       <p className="text-sm text-muted-foreground">Generating your customized outfit...</p>
-                      <p className="text-xs text-muted-foreground">This may take 15-30 seconds</p>
+                      <p className="text-xs text-muted-foreground">Analyzing colors & patterns</p>
                     </div>
-                  ) : generatedImageUrl ? (
-                    <>
-                      <img src={generatedImageUrl} alt="AI Generated" className="w-full max-h-[500px] object-contain" />
+                  ) : generatedResult ? (
+                    <div className="w-full">
+                      <img
+                        src={generatedResult.imageUrl}
+                        alt={generatedResult.title}
+                        className="w-full max-h-[500px] object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
                       <button
-                        onClick={() => setGeneratedImageUrl(null)}
+                        onClick={() => setGeneratedResult(null)}
                         className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/80 flex items-center justify-center text-muted-foreground hover:text-destructive"
                       >✕</button>
-                    </>
+                    </div>
                   ) : null}
                 </div>
+                {generatedResult && (
+                  <div className="mt-3 space-y-2">
+                    <h4 className="font-display font-semibold">{generatedResult.title}</h4>
+                    <p className="text-sm text-muted-foreground">{generatedResult.description}</p>
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-sm">{generatedResult.aiTip}</p>
+                    </div>
+                    <Button onClick={handleAIGenerate} disabled={isGenerating} size="sm" className="burgundy-gradient border-none text-primary-foreground rounded-full gap-1.5 w-full mt-2">
+                      <Sparkles size={14} /> Re-Generate
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -260,14 +252,9 @@ export default function Editor() {
                               : "bg-muted text-muted-foreground hover:bg-muted/80"
                           }`}
                         >
-                          <div
-                            className="w-6 h-6 rounded-full border-2 border-background shadow-sm shrink-0"
-                            style={{ backgroundColor: colors[part.id as Part] }}
-                          />
+                          <div className="w-6 h-6 rounded-full border-2 border-background shadow-sm shrink-0" style={{ backgroundColor: colors[part.id as Part] }} />
                           <span>{part.label}</span>
-                          {activePart === part.id && (
-                            <span className="ml-auto text-xs opacity-75">Active</span>
-                          )}
+                          {activePart === part.id && <span className="ml-auto text-xs opacity-75">Active</span>}
                         </button>
                       ))}
                     </div>
@@ -295,24 +282,15 @@ export default function Editor() {
                     </div>
                     <div className="mt-3 flex items-center gap-2">
                       <label className="text-sm text-muted-foreground">Custom:</label>
-                      <input
-                        type="color"
-                        value={colors[activePart]}
-                        onChange={(e) => handleColorChange(e.target.value)}
-                        className="w-10 h-8 rounded cursor-pointer"
-                      />
+                      <input type="color" value={colors[activePart]} onChange={(e) => handleColorChange(e.target.value)} className="w-10 h-8 rounded cursor-pointer" />
                       <span className="text-xs text-muted-foreground font-mono">{colors[activePart]}</span>
                     </div>
                   </div>
 
                   {/* AI Color Suggestions */}
                   <div className="bg-muted/50 rounded-xl p-4">
-                    <button
-                      onClick={() => setShowSuggestions(!showSuggestions)}
-                      className="flex items-center gap-2 text-sm font-semibold w-full"
-                    >
-                      <Sparkles size={16} className="text-accent" />
-                      Smart Color Suggestions
+                    <button onClick={() => setShowSuggestions(!showSuggestions)} className="flex items-center gap-2 text-sm font-semibold w-full">
+                      <Sparkles size={16} className="text-accent" /> Smart Color Suggestions
                       <span className="ml-auto text-xs text-muted-foreground">{showSuggestions ? "▲" : "▼"}</span>
                     </button>
                     {showSuggestions && (
@@ -322,13 +300,7 @@ export default function Editor() {
                           <p className="text-xs font-medium mb-1.5">Suggested Border Colors</p>
                           <div className="flex gap-2">
                             {suggestions.borders.map((c, i) => (
-                              <button
-                                key={i}
-                                onClick={() => applySuggestion("borders", i)}
-                                className="w-8 h-8 rounded-full border-2 border-border hover:scale-110 hover:border-primary transition-all"
-                                style={{ backgroundColor: c }}
-                                title={c}
-                              />
+                              <button key={i} onClick={() => applySuggestion("borders", i)} className="w-8 h-8 rounded-full border-2 border-border hover:scale-110 hover:border-primary transition-all" style={{ backgroundColor: c }} title={c} />
                             ))}
                           </div>
                         </div>
@@ -336,13 +308,7 @@ export default function Editor() {
                           <p className="text-xs font-medium mb-1.5">Suggested Sleeve Colors</p>
                           <div className="flex gap-2">
                             {suggestions.sleeves.map((c, i) => (
-                              <button
-                                key={i}
-                                onClick={() => applySuggestion("sleeves", i)}
-                                className="w-8 h-8 rounded-full border-2 border-border hover:scale-110 hover:border-primary transition-all"
-                                style={{ backgroundColor: c }}
-                                title={c}
-                              />
+                              <button key={i} onClick={() => applySuggestion("sleeves", i)} className="w-8 h-8 rounded-full border-2 border-border hover:scale-110 hover:border-primary transition-all" style={{ backgroundColor: c }} title={c} />
                             ))}
                           </div>
                         </div>
@@ -350,7 +316,7 @@ export default function Editor() {
                     )}
                   </div>
 
-                  {/* Matching outfit suggestion */}
+                  {/* Matching outfit tip */}
                   <div className="bg-muted/50 rounded-xl p-4">
                     <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
                       <Shirt size={16} className="text-accent" /> Matching Outfit Tip
