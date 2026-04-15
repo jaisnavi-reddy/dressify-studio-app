@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import MainLayout from "@/components/MainLayout";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { designs, availableColors } from "@/data/designs";
 import { useApp } from "@/contexts/AppContext";
