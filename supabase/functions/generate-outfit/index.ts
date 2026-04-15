@@ -26,21 +26,28 @@ serve(async (req) => {
     const outfitLabel = outfitType || "outfit";
     const genderLabel = gender === "men" ? "men's" : "women's";
     const fabricLabel = fabric || "silk";
-    const colorDesc = colors ? ` Use these exact colors: ${colors}.` : "";
-    const patternDesc = patterns && patterns !== "none" ? ` Apply these patterns to the respective regions: ${patterns}.` : "";
-    const regionDesc = selectedRegion ? ` Focus especially on the ${selectedRegion} region of the garment.` : "";
 
-    const prompt = `Convert this fashion design image into a photorealistic ${genderLabel} ${outfitLabel} made of ${fabricLabel} fabric.
+    const prompt = `You are given an image of a ${genderLabel} ${outfitLabel} garment.
+
+YOUR TASK: Generate a photorealistic version of this EXACT SAME garment with the following modifications applied:
+
+COLORS (MUST APPLY EXACTLY):
+${colors || "Keep original colors"}
+
+PATTERNS:
+${patterns && patterns !== "none" ? patterns : "No pattern changes — keep fabric plain or as shown"}
+
+FOCUSED REGION: ${selectedRegion || "entire garment"}
+— Pay special attention to accurately rendering the ${selectedRegion || "entire"} region with the specified color.
 
 CRITICAL RULES:
-- Reproduce the EXACT same silhouette, shape, and design from the image.${colorDesc}${patternDesc}${regionDesc}
-- Apply realistic ${fabricLabel} fabric texture with natural folds, shadows, and lighting.
-- The colors shown in the image overlay should be accurately reflected in the final garment.
-- Display the garment on a clean white/neutral background, flat-lay or mannequin style.
-- Make it look like a professional fashion catalog photograph.
-- Match the exact proportions and outline of the source garment.
-- If patterns are specified, weave them realistically into the fabric texture.
-- Ensure the generated image looks like a real photograph, not a digital rendering.`;
+1. The generated garment MUST have the EXACT SAME shape, silhouette, and design as the input image.
+2. DO NOT change the garment type — if it's a saree, generate a saree. If it's a shirt, generate a shirt.
+3. Apply the specified colors PRECISELY to each region (body, sleeve, border).
+4. Use realistic ${fabricLabel} fabric texture with natural folds, shadows, and draping.
+5. Display on a clean white/light neutral background, flat-lay or mannequin style.
+6. Make it look like a professional fashion catalog photograph.
+7. The output should look like the SAME garment just with the new colors/patterns applied.`;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
