@@ -24,12 +24,11 @@ export default function Auth() {
           password,
           options: {
             data: { name },
-            emailRedirectTo: window.location.origin,
           },
         });
         if (error) throw error;
-        toast.success("Account created! Please check your email to verify, then sign in.");
-        setIsSignUp(false);
+        toast.success("Account created!");
+        navigate("/home");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
