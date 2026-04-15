@@ -86,29 +86,52 @@ export default function Editor() {
     }
   };
 
-  /* ── Local AI Generate (no API) ── */
-  const handleAIGenerate = () => {
+  /* ── AI Generate via Edge Function ── */
+  const handleAIGenerate = async () => {
+    if (!canvasRef.current) return;
     setIsGenerating(true);
     setGeneratedResult(null);
 
-    // Fake 2-second generation
-    setTimeout(() => {
-      const outfit = generateRandomOutfit({
-        gender: design.gender,
-        color: undefined,
-        fabric: design.fabric.toLowerCase(),
+    try {
+      // Capture current canvas with all color/pattern customizations
+      const canvas = await html2canvas(canvasRef.current, { useCORS: true, scale: 2, backgroundColor: "#ffffff" });
+      const sketchDataUrl = canvas.toDataURL("image/png");
+
+      // Build descriptive color info
+      const colorDescription = `Body: ${colors.body}, Sleeve: ${colors.sleeve}, Border: ${colors.border}`;
+      const patternNames = Object.entries(patterns)
+        .filter(([, p]) => p !== null)
+        .map(([region, p]) => `${region}: ${p!.name}`)
+        .join(", ");
+
+      const { data, error } = await supabase.functions.invoke("generate-outfit", {
+        body: {
+          sketchDataUrl,
+          outfitType: design.categoryId,
+          gender: design.gender,
+          fabric: design.fabric,
+          colors: colorDescription,
+          patterns: patternNames || "none",
+          selectedRegion: activePart,
+        },
       });
-      const aiTip = generateAIDescription(outfit);
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       setGeneratedResult({
-        imageUrl: outfit.imageUrl,
-        title: outfit.title,
-        description: outfit.description,
-        aiTip,
+        imageUrl: data.imageUrl,
+        title: `${design.name} – AI Generated`,
+        description: data.description || `Custom ${design.categoryId} with your selected colors and patterns.`,
+        aiTip: `Colors applied: ${colorDescription}. Region focus: ${activePart}.`,
       });
+      toast({ title: "✨ Outfit Generated!", description: "Your customized outfit is ready!" });
+    } catch (err: any) {
+      console.error("AI generate error:", err);
+      toast({ title: "Generation failed", description: err.message || "Please try again.", variant: "destructive" });
+    } finally {
       setIsGenerating(false);
-      toast({ title: "✨ Outfit Generated!", description: "Your customized outfit is ready — powered locally!" });
-    }, 2000);
+    }
   };
 
   const tabs = [
