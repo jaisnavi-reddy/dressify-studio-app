@@ -1,0 +1,22 @@
+{
+  "name": "StyleMate – Smart Outfit Planner",
+  "short_name": "StyleMate",
+  "description": "Your personal wardrobe assistant and outfit planner",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#e11d48",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
