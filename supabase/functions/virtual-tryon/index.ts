@@ -113,7 +113,7 @@ Your task: Create a photorealistic image of the person wearing this exact outfit
     console.error("virtual-tryon error:", e);
     return new Response(
       JSON.stringify({ error: e instanceof Error ? e.message : "Failed to generate try-on" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
