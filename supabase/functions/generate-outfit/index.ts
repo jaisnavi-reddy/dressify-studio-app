@@ -6,6 +6,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Convert a data URL (data:image/png;base64,XXX) to {mimeType, data}
+function parseDataUrl(dataUrl: string): { mimeType: string; data: string } {
+  const match = dataUrl.match(/^data:(.+?);base64,(.+)$/);
+  if (!match) {
+    return { mimeType: "image/png", data: dataUrl };
+  }
+  return { mimeType: match[1], data: match[2] };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -14,9 +23,9 @@ serve(async (req) => {
   try {
     const { sketchDataUrl, outfitType, gender, fabric, colors, patterns, selectedRegion } = await req.json();
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
     }
 
     if (!sketchDataUrl) {
@@ -49,57 +58,62 @@ CRITICAL RULES:
 6. Make it look like a professional fashion catalog photograph.
 7. The output should look like the SAME garment just with the new colors/patterns applied.`;
 
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
+    const { mimeType, data: imageData } = parseDataUrl(sketchDataUrl);
+
+    // Call Google Gemini directly using user's API key
+    const model = "gemini-2.5-flash-image";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: imageData } },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ["IMAGE", "TEXT"],
         },
-        body: JSON.stringify({
-          model: "google/gemini-3-pro-image-preview",
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                {
-                  type: "image_url",
-                  image_url: { url: sketchDataUrl },
-                },
-              ],
-            },
-          ],
-          modalities: ["image", "text"],
-        }),
-      }
-    );
+      }),
+    });
 
     if (!response.ok) {
+      const errText = await response.text();
+      console.error("Gemini API error:", response.status, errText);
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
+          JSON.stringify({ error: "Rate limit hit on Google Gemini. Wait a moment and try again." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
-      throw new Error(`AI gateway returned ${response.status}`);
+      throw new Error(`Gemini API returned ${response.status}: ${errText}`);
     }
 
     const data = await response.json();
-    const generatedImage =
-      data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const textResponse = data.choices?.[0]?.message?.content || "";
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+
+    let generatedImage = "";
+    let textResponse = "";
+    for (const part of parts) {
+      if (part.inline_data?.data) {
+        const mt = part.inline_data.mime_type || "image/png";
+        generatedImage = `data:${mt};base64,${part.inline_data.data}`;
+      } else if (part.inlineData?.data) {
+        const mt = part.inlineData.mimeType || "image/png";
+        generatedImage = `data:${mt};base64,${part.inlineData.data}`;
+      } else if (part.text) {
+        textResponse += part.text;
+      }
+    }
 
     if (!generatedImage) {
+      console.error("No image in Gemini response:", JSON.stringify(data).slice(0, 500));
       throw new Error("No image was generated. Please try again.");
     }
 
